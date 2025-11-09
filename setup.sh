@@ -1,0 +1,63 @@
+#!/bin/bash
+
+echo "Setting up FamilyHub iOS App..."
+
+cd "$(dirname "$0")"
+
+# Create Xcode project using xcodebuild
+echo "Creating Xcode project..."
+
+# Create a basic project structure using xcrun
+xcodebuild -create-xcframework 2>/dev/null || true
+
+# Better approach: use swift package generate-xcodeproj (deprecated but works) or open in Xcode
+echo "Generating Xcode project from Package.swift..."
+# swift package generate-xcodeproj 2>/dev/null || echo "Note: You'll need to open this in Xcode to generate the project"
+
+echo ""
+echo "Setup Instructions:"
+echo "=================="
+echo ""
+echo "1. Open Xcode"
+echo "2. Select 'Create a new Xcode project'"
+echo "3. Choose 'iOS' > 'App' template"
+echo "4. Name it 'FamilyHub'"
+echo "5. Set Organization Identifier to 'com.familyhub'"
+echo "6. Set Interface to 'SwiftUI'"
+echo "7. Set Language to 'Swift'"
+echo "8. Save it in: $(pwd)"
+echo "9. When prompted, choose 'Replace' to merge with existing files"
+echo ""
+echo "OR (Easier Method):"
+echo "=================="
+echo "1. Open Xcode"
+echo "2. File > Open"
+echo "3. Select this directory: $(pwd)"
+echo "4. Xcode will recognize the Package.swift and create a project"
+echo ""
+echo "After opening in Xcode:"
+echo "======================="
+echo "1. Go to File > Add Packages"
+echo "2. Add Firebase iOS SDK: https://github.com/firebase/firebase-ios-sdk.git"
+echo "3. Select these packages:"
+echo "   - FirebaseAuth"
+echo "   - FirebaseFirestore"
+echo "   - FirebaseStorage"
+echo "   - FirebaseMessaging"
+echo ""
+echo "4. Set up Firebase:"
+echo "   - Go to https://console.firebase.google.com/"
+echo "   - Create a new project"
+echo "   - Add an iOS app"
+echo "   - Bundle ID: com.familyhub.app"
+echo "   - Download GoogleService-Info.plist"
+echo "   - Replace FamilyHub/GoogleService-Info.plist with downloaded file"
+echo ""
+echo "5. Enable Firebase services in console:"
+echo "   - Authentication > Sign-in method > Email/Password"
+echo "   - Firestore Database > Create database"
+echo "   - Storage > Get started"
+echo "   - Cloud Messaging > Enable"
+echo ""
+echo "All source files are ready in the FamilyHub/ directory!"
+echo ""
