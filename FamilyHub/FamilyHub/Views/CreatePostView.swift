@@ -9,6 +9,7 @@ struct CreatePostView: View {
     @State private var content = ""
     @State private var selectedImages: [UIImage] = []
     @State private var showingImagePicker = false
+    @State private var privacy: Privacy = .private
 
     var body: some View {
         NavigationView {
@@ -16,6 +17,27 @@ struct CreatePostView: View {
                 Section(header: Text("Content")) {
                     TextEditor(text: $content)
                         .frame(minHeight: 100)
+                }
+
+                Section(header: Text("Privacy")) {
+                    Picker("Who can see this?", selection: $privacy) {
+                        HStack {
+                            Image(systemName: "lock.fill")
+                            Text("Private")
+                        }
+                        .tag(Privacy.private)
+
+                        HStack {
+                            Image(systemName: "person.3.fill")
+                            Text("Family")
+                        }
+                        .tag(Privacy.family)
+                    }
+                    .pickerStyle(.segmented)
+
+                    Text(privacy == .private ? "Only you can see this post" : "All family members can see this post")
+                        .font(.caption)
+                        .foregroundColor(.gray)
                 }
 
                 Section(header: Text("Photos")) {
@@ -73,7 +95,7 @@ struct CreatePostView: View {
               let userName = authViewModel.currentUser?.displayName else { return }
 
         let imageData = selectedImages.compactMap { $0.jpegData(compressionQuality: 0.7) }
-        postViewModel.createPost(userId: userId, userName: userName, content: content, images: imageData)
+        postViewModel.createPost(userId: userId, userName: userName, content: content, images: imageData, privacy: privacy)
         dismiss()
     }
 }

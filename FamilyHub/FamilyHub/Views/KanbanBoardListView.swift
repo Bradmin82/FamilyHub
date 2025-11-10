@@ -53,6 +53,7 @@ struct CreateBoardView: View {
 
     @State private var boardName = ""
     @State private var boardDescription = ""
+    @State private var privacy: Privacy = .private
 
     var body: some View {
         NavigationView {
@@ -60,6 +61,24 @@ struct CreateBoardView: View {
                 Section(header: Text("Board Details")) {
                     TextField("Board Name", text: $boardName)
                     TextField("Description", text: $boardDescription)
+                }
+
+                Section(header: Text("Privacy")) {
+                    Picker("Who can see this board?", selection: $privacy) {
+                        Text("Private").tag(Privacy.private)
+                        Text("Family").tag(Privacy.family)
+                    }
+                    .pickerStyle(SegmentedPickerStyle())
+
+                    if privacy == .private {
+                        Text("Only you can see this board")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    } else {
+                        Text("All family members can see this board")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
                 }
             }
             .navigationTitle("New Board")
@@ -82,7 +101,7 @@ struct CreateBoardView: View {
 
     private func createBoard() {
         guard let userId = authViewModel.currentUser?.id else { return }
-        kanbanViewModel.createBoard(name: boardName, description: boardDescription, userId: userId)
+        kanbanViewModel.createBoard(name: boardName, description: boardDescription, userId: userId, privacy: privacy)
         dismiss()
     }
 }

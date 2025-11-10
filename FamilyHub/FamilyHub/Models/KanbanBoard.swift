@@ -7,9 +7,11 @@ struct KanbanBoard: Identifiable, Codable {
     var createdBy: String
     var members: [String] // User IDs
     var columns: [KanbanColumn]
+    var privacy: Privacy // family or private
+    var shareToken: String? // For public URL sharing
     var createdDate: Date
 
-    init(id: String = UUID().uuidString, name: String, description: String, createdBy: String) {
+    init(id: String = UUID().uuidString, name: String, description: String, createdBy: String, privacy: Privacy = .private) {
         self.id = id
         self.name = name
         self.description = description
@@ -20,7 +22,28 @@ struct KanbanBoard: Identifiable, Codable {
             KanbanColumn(name: "In Progress"),
             KanbanColumn(name: "Done")
         ]
+        self.privacy = privacy
+        self.shareToken = nil
         self.createdDate = Date()
+    }
+
+    static func generateShareToken() -> String {
+        return UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(16).lowercased()
+    }
+
+    // Custom decoding to handle missing privacy field and shareToken
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        description = try container.decode(String.self, forKey: .description)
+        createdBy = try container.decode(String.self, forKey: .createdBy)
+        members = try container.decode([String].self, forKey: .members)
+        columns = try container.decode([KanbanColumn].self, forKey: .columns)
+        createdDate = try container.decode(Date.self, forKey: .createdDate)
+        // Default to family for existing boards without privacy field
+        privacy = (try? container.decode(Privacy.self, forKey: .privacy)) ?? .family
+        shareToken = try? container.decode(String.self, forKey: .shareToken)
     }
 }
 

@@ -55,6 +55,31 @@ struct LoginView: View {
                         .cornerRadius(10)
                 }
 
+                if !isSignUpMode {
+                    Text("or")
+                        .foregroundColor(.gray)
+                        .padding(.vertical, 8)
+
+                    Button(action: {
+                        authViewModel.signInWithGoogle()
+                    }) {
+                        HStack {
+                            Image(systemName: "globe")
+                            Text("Sign in with Google")
+                        }
+                        .fontWeight(.semibold)
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.white)
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                }
+
                 Button(action: {
                     isSignUpMode.toggle()
                 }) {
