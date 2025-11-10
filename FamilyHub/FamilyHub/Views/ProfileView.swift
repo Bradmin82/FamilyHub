@@ -6,6 +6,7 @@ struct ProfileView: View {
     @StateObject private var familyViewModel = FamilyViewModel()
     @State private var showingEditProfile = false
     @State private var showingFamilyManagement = false
+    @State private var showingSharingSettings = false
 
     var userPosts: [Post] {
         postViewModel.posts.filter { $0.userId == authViewModel.currentUser?.id }
@@ -135,6 +136,34 @@ struct ProfileView: View {
 
                     Divider()
 
+                    // Settings Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Settings")
+                            .font(.headline)
+                            .padding(.horizontal)
+
+                        Button(action: { showingSharingSettings = true }) {
+                            HStack {
+                                Image(systemName: "eye.fill")
+                                    .foregroundColor(.blue)
+                                    .frame(width: 24)
+                                Text("Default Sharing Settings")
+                                    .foregroundColor(.primary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(.gray)
+                                    .font(.caption)
+                            }
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(10)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .padding(.horizontal)
+                    }
+
+                    Divider()
+
                     Text("My Posts")
                         .font(.headline)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -166,10 +195,14 @@ struct ProfileView: View {
             .sheet(isPresented: $showingFamilyManagement) {
                 FamilyManagementView(familyViewModel: familyViewModel)
             }
+            .sheet(isPresented: $showingSharingSettings) {
+                SharingSettingsView()
+            }
             .onAppear {
                 postViewModel.fetchPosts(
                     userId: authViewModel.currentUser?.id,
-                    familyId: authViewModel.currentUser?.familyId
+                    familyId: authViewModel.currentUser?.familyId,
+                    relatedFamilyIds: authViewModel.currentUser?.relatedFamilyIds ?? []
                 )
                 if let familyId = authViewModel.currentUser?.familyId {
                     familyViewModel.loadFamily(familyId: familyId)

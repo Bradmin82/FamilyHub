@@ -8,11 +8,26 @@
 
 /* Begin PBXFileReference section */
 		B0B492B42EC0FB1400AEE7E6 /* FamilyHub.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FamilyHub.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B0DC994E2EC182B00029AE57 /* FamilyHub.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = FamilyHub.xcodeproj; sourceTree = "<group>"; };
+		B0DC9A312EC186950029AE57 /* FamilyHub.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = FamilyHub.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B0DC9A982EC187390029AE57 /* Exceptions for "FamilyHub" folder in "FamilyHub" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				FamilyHub/Info.plist,
+			);
+			target = B0B492B32EC0FB1400AEE7E6 /* FamilyHub */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		B0B492B62EC0FB1400AEE7E6 /* FamilyHub */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B0DC9A982EC187390029AE57 /* Exceptions for "FamilyHub" folder in "FamilyHub" target */,
+			);
 			path = FamilyHub;
 			sourceTree = "<group>";
 		};
@@ -41,6 +56,20 @@
 			isa = PBXGroup;
 			children = (
 				B0B492B42EC0FB1400AEE7E6 /* FamilyHub.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B0DC994F2EC182B00029AE57 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B0DC9A322EC186950029AE57 /* Products */ = {
+			isa = PBXGroup;
+			children = (
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -97,6 +126,16 @@
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B0B492B52EC0FB1400AEE7E6 /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = B0DC9A322EC186950029AE57 /* Products */;
+					ProjectRef = B0DC9A312EC186950029AE57 /* FamilyHub.xcodeproj */;
+				},
+				{
+					ProductGroup = B0DC994F2EC182B00029AE57 /* Products */;
+					ProjectRef = B0DC994E2EC182B00029AE57 /* FamilyHub.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				B0B492B32EC0FB1400AEE7E6 /* FamilyHub */,

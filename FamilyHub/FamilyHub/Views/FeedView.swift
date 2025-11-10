@@ -3,15 +3,70 @@ import FirebaseFirestore
 
 struct FeedView: View {
     @StateObject private var postViewModel = PostViewModel()
+    @StateObject private var kanbanViewModel = KanbanViewModel()
     @EnvironmentObject var authViewModel: AuthViewModel
     @State private var showingCreatePost = false
+    @State private var showFilter = false
+    @State private var showPosts = true
+    @State private var showBoards = true
 
     var body: some View {
         NavigationView {
             ScrollView {
                 LazyVStack(spacing: 16) {
-                    ForEach(postViewModel.posts) { post in
-                        PostCardView(post: post, postViewModel: postViewModel)
+                    // Filter options
+                    HStack {
+                        Button(action: { showPosts.toggle() }) {
+                            HStack {
+                                Image(systemName: showPosts ? "checkmark.circle.fill" : "circle")
+                                Text("Posts")
+                            }
+                            .foregroundColor(showPosts ? .blue : .gray)
+                        }
+
+                        Button(action: { showBoards.toggle() }) {
+                            HStack {
+                                Image(systemName: showBoards ? "checkmark.circle.fill" : "circle")
+                                Text("Boards")
+                            }
+                            .foregroundColor(showBoards ? .blue : .gray)
+                        }
+
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+
+                    // Boards section
+                    if showBoards && !kanbanViewModel.boards.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Recent Boards")
+                                .font(.headline)
+                                .padding(.horizontal)
+
+                            ForEach(kanbanViewModel.boards.prefix(3)) { board in
+                                BoardCardView(board: board, kanbanViewModel: kanbanViewModel)
+                                    .padding(.horizontal)
+                            }
+
+                            if kanbanViewModel.boards.count > 3 {
+                                NavigationLink(destination: KanbanBoardListView()) {
+                                    Text("View All Boards (\(kanbanViewModel.boards.count))")
+                                        .font(.caption)
+                                        .foregroundColor(.blue)
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                }
+                            }
+                        }
+                        .padding(.bottom)
+                    }
+
+                    // Posts section
+                    if showPosts {
+                        ForEach(postViewModel.posts) { post in
+                            PostCardView(post: post, postViewModel: postViewModel)
+                        }
                     }
                 }
                 .padding()
@@ -29,10 +84,18 @@ struct FeedView: View {
                 CreatePostView(postViewModel: postViewModel)
             }
             .onAppear {
-                postViewModel.fetchPosts(
-                    userId: authViewModel.currentUser?.id,
-                    familyId: authViewModel.currentUser?.familyId
-                )
+                if let userId = authViewModel.currentUser?.id {
+                    postViewModel.fetchPosts(
+                        userId: userId,
+                        familyId: authViewModel.currentUser?.familyId,
+                        relatedFamilyIds: authViewModel.currentUser?.relatedFamilyIds ?? []
+                    )
+                    kanbanViewModel.fetchBoards(
+                        userId: userId,
+                        familyId: authViewModel.currentUser?.familyId,
+                        relatedFamilyIds: authViewModel.currentUser?.relatedFamilyIds ?? []
+                    )
+                }
             }
         }
     }

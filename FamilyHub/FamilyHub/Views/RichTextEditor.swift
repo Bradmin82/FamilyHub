@@ -87,18 +87,14 @@ struct MarkdownText: View {
     }
 
     private func formatMarkdown(_ text: String) -> AttributedString {
-        var attributedString = AttributedString(text)
+        // Simple markdown parser
+        var result = text
 
-        // Bold text **text**
-        if let range = attributedString.range(of: #/\*\*([^\*]+)\*\*/#) {
-            attributedString[range].font = .boldSystemFont(ofSize: 16)
-        }
+        // Remove markdown symbols for preview
+        result = result.replacingOccurrences(of: "**", with: "")
+        result = result.replacingOccurrences(of: "[ ] ", with: "☐ ")
+        result = result.replacingOccurrences(of: "[x] ", with: "☑ ")
 
-        // Italic text *text*
-        if let range = attributedString.range(of: #/\*([^\*]+)\*/#) {
-            attributedString[range].font = .italicSystemFont(ofSize: 16)
-        }
-
-        return attributedString
+        return AttributedString(result)
     }
 }

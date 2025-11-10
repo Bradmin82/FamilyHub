@@ -10,6 +10,7 @@ struct CreatePostView: View {
     @State private var selectedImages: [UIImage] = []
     @State private var showingImagePicker = false
     @State private var privacy: Privacy = .private
+    @State private var useDefaultPrivacy = true
 
     var body: some View {
         NavigationView {
@@ -20,24 +21,28 @@ struct CreatePostView: View {
                 }
 
                 Section(header: Text("Privacy")) {
-                    Picker("Who can see this?", selection: $privacy) {
-                        HStack {
-                            Image(systemName: "lock.fill")
-                            Text("Private")
+                    Toggle("Use Default Setting", isOn: $useDefaultPrivacy)
+                        .onChange(of: useDefaultPrivacy) { _, newValue in
+                            if newValue {
+                                privacy = authViewModel.currentUser?.defaultPostPrivacy ?? .private
+                            }
                         }
-                        .tag(Privacy.private)
 
+                    if !useDefaultPrivacy {
+                        PrivacyPicker(selectedPrivacy: $privacy, showDescription: false)
+                    } else {
                         HStack {
-                            Image(systemName: "person.3.fill")
-                            Text("Family")
+                            Image(systemName: privacy.icon)
+                                .foregroundColor(.blue)
+                            Text(privacy.displayName)
+                                .foregroundColor(.gray)
+                            Spacer()
+                            Text("Default")
+                                .font(.caption)
+                                .foregroundColor(.blue)
                         }
-                        .tag(Privacy.family)
+                        .padding(.vertical, 4)
                     }
-                    .pickerStyle(.segmented)
-
-                    Text(privacy == .private ? "Only you can see this post" : "All family members can see this post")
-                        .font(.caption)
-                        .foregroundColor(.gray)
                 }
 
                 Section(header: Text("Photos")) {
@@ -86,6 +91,10 @@ struct CreatePostView: View {
             }
             .sheet(isPresented: $showingImagePicker) {
                 ImagePicker(selectedImages: $selectedImages)
+            }
+            .onAppear {
+                // Load default privacy setting
+                privacy = authViewModel.currentUser?.defaultPostPrivacy ?? .private
             }
         }
     }

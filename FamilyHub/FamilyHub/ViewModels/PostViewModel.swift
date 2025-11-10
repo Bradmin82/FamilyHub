@@ -10,9 +10,9 @@ class PostViewModel: ObservableObject {
     private let db = Firestore.firestore()
     private let storage = Storage.storage()
 
-    func fetchPosts(userId: String? = nil, familyId: String? = nil) {
+    func fetchPosts(userId: String? = nil, familyId: String? = nil, relatedFamilyIds: [String] = []) {
         isLoading = true
-        print("🔄 Fetching posts... (userId: \(userId ?? "nil"), familyId: \(familyId ?? "nil"))")
+        print("🔄 Fetching posts... (userId: \(userId ?? "nil"), familyId: \(familyId ?? "nil"), related: \(relatedFamilyIds.count))")
 
         db.collection("posts")
             .order(by: "timestamp", descending: true)
@@ -41,23 +41,41 @@ class PostViewModel: ObservableObject {
                     }
                 }
 
-                // Filter posts based on privacy and family
+                // Filter posts based on privacy hierarchy
                 self?.posts = allPosts.filter { post in
-                    // Show your own posts (private and family)
-                    if let userId = userId, post.userId == userId {
-                        return true
-                    }
-
-                    // Show family posts from family members (only if you're in a family)
-                    if post.privacy == .family, familyId != nil {
-                        return true
-                    }
-
-                    return false
+                    self?.canViewPost(post, userId: userId, familyId: familyId, relatedFamilyIds: relatedFamilyIds) ?? false
                 }
 
                 print("📊 Total posts loaded after filtering: \(self?.posts.count ?? 0)")
             }
+    }
+
+    private func canViewPost(_ post: Post, userId: String?, familyId: String?, relatedFamilyIds: [String]) -> Bool {
+        // Always show your own posts
+        if let userId = userId, post.userId == userId {
+            return true
+        }
+
+        // Check privacy level
+        switch post.privacy {
+        case .private:
+            return false // Can't see other people's private posts
+
+        case .family:
+            // Must be in the same immediate family
+            return familyId != nil
+
+        case .familyAndRelated:
+            // Must be in immediate family OR related families
+            return familyId != nil || !relatedFamilyIds.isEmpty
+
+        case .familyAndAllRelated:
+            // Must be in immediate family OR any related family
+            return familyId != nil || !relatedFamilyIds.isEmpty
+
+        case .public:
+            return true // Everyone can see public posts
+        }
     }
 
     func createPost(userId: String, userName: String, content: String, images: [Data], privacy: Privacy = .private) {

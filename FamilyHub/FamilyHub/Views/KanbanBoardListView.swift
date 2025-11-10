@@ -39,7 +39,11 @@ struct KanbanBoardListView: View {
             }
             .onAppear {
                 if let userId = authViewModel.currentUser?.id {
-                    kanbanViewModel.fetchBoards(userId: userId)
+                    kanbanViewModel.fetchBoards(
+                        userId: userId,
+                        familyId: authViewModel.currentUser?.familyId,
+                        relatedFamilyIds: authViewModel.currentUser?.relatedFamilyIds ?? []
+                    )
                 }
             }
         }
@@ -54,6 +58,7 @@ struct CreateBoardView: View {
     @State private var boardName = ""
     @State private var boardDescription = ""
     @State private var privacy: Privacy = .private
+    @State private var useDefaultPrivacy = true
 
     var body: some View {
         NavigationView {
@@ -64,20 +69,27 @@ struct CreateBoardView: View {
                 }
 
                 Section(header: Text("Privacy")) {
-                    Picker("Who can see this board?", selection: $privacy) {
-                        Text("Private").tag(Privacy.private)
-                        Text("Family").tag(Privacy.family)
-                    }
-                    .pickerStyle(SegmentedPickerStyle())
+                    Toggle("Use Default Setting", isOn: $useDefaultPrivacy)
+                        .onChange(of: useDefaultPrivacy) { _, newValue in
+                            if newValue {
+                                privacy = authViewModel.currentUser?.defaultBoardPrivacy ?? .private
+                            }
+                        }
 
-                    if privacy == .private {
-                        Text("Only you can see this board")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                    if !useDefaultPrivacy {
+                        PrivacyPicker(selectedPrivacy: $privacy, showDescription: false)
                     } else {
-                        Text("All family members can see this board")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                        HStack {
+                            Image(systemName: privacy.icon)
+                                .foregroundColor(.blue)
+                            Text(privacy.displayName)
+                                .foregroundColor(.gray)
+                            Spacer()
+                            Text("Default")
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                        }
+                        .padding(.vertical, 4)
                     }
                 }
             }
@@ -95,6 +107,10 @@ struct CreateBoardView: View {
                     }
                     .disabled(boardName.isEmpty)
                 }
+            }
+            .onAppear {
+                // Load default privacy setting
+                privacy = authViewModel.currentUser?.defaultBoardPrivacy ?? .private
             }
         }
     }

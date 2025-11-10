@@ -8,10 +8,9 @@ class KanbanViewModel: ObservableObject {
 
     private let db = Firestore.firestore()
 
-    func fetchBoards(userId: String) {
+    func fetchBoards(userId: String, familyId: String? = nil, relatedFamilyIds: [String] = []) {
         isLoading = true
         db.collection("kanbanBoards")
-            .whereField("members", arrayContains: userId)
             .addSnapshotListener { [weak self] snapshot, error in
                 self?.isLoading = false
 
@@ -20,10 +19,43 @@ class KanbanViewModel: ObservableObject {
                     return
                 }
 
-                self?.boards = documents.compactMap { document in
+                let allBoards = documents.compactMap { document -> KanbanBoard? in
                     try? document.data(as: KanbanBoard.self)
                 }
+
+                // Filter boards based on privacy hierarchy
+                self?.boards = allBoards.filter { board in
+                    self?.canViewBoard(board, userId: userId, familyId: familyId, relatedFamilyIds: relatedFamilyIds) ?? false
+                }
             }
+    }
+
+    private func canViewBoard(_ board: KanbanBoard, userId: String, familyId: String?, relatedFamilyIds: [String]) -> Bool {
+        // Always show your own boards (created by you or you're a member)
+        if board.createdBy == userId || board.members.contains(userId) {
+            return true
+        }
+
+        // Check privacy level
+        switch board.privacy {
+        case .private:
+            return false // Can't see other people's private boards
+
+        case .family:
+            // Must be in the same immediate family
+            return familyId != nil
+
+        case .familyAndRelated:
+            // Must be in immediate family OR related families
+            return familyId != nil || !relatedFamilyIds.isEmpty
+
+        case .familyAndAllRelated:
+            // Must be in immediate family OR any related family
+            return familyId != nil || !relatedFamilyIds.isEmpty
+
+        case .public:
+            return true // Everyone can see public boards
+        }
     }
 
     func createBoard(name: String, description: String, userId: String, privacy: Privacy = .private) {
