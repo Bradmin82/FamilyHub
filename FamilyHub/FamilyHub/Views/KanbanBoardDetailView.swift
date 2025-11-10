@@ -7,10 +7,22 @@ struct KanbanBoardDetailView: View {
     @State private var showingAddTask = false
     @State private var selectedColumnIndex = 0
     @State private var showingBoardSettings = false
-    @State private var showingEditTask = false
-    @State private var selectedTask: KanbanTask?
+    @State private var editingTaskId: String?
+    @State private var editingColumnIndex: Int?
     @State private var showingAddColumn = false
     @State private var newColumnName = ""
+
+    var showingEditTask: Binding<Bool> {
+        Binding(
+            get: { editingTaskId != nil },
+            set: { if !$0 { editingTaskId = nil; editingColumnIndex = nil } }
+        )
+    }
+
+    func findTask(taskId: String, columnIndex: Int) -> KanbanTask? {
+        guard columnIndex < board.columns.count else { return nil }
+        return board.columns[columnIndex].tasks.first(where: { $0.id == taskId })
+    }
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: true) {
@@ -26,9 +38,8 @@ struct KanbanBoardDetailView: View {
                             showingAddTask = true
                         },
                         onTaskTapped: { task in
-                            selectedTask = task
-                            selectedColumnIndex = columnIndex
-                            showingEditTask = true
+                            editingTaskId = task.id
+                            editingColumnIndex = columnIndex
                         }
                     )
                 }
@@ -65,12 +76,14 @@ struct KanbanBoardDetailView: View {
                 columnIndex: selectedColumnIndex
             )
         }
-        .sheet(isPresented: $showingEditTask) {
-            if let task = selectedTask {
+        .sheet(isPresented: showingEditTask) {
+            if let taskId = editingTaskId,
+               let columnIndex = editingColumnIndex,
+               let task = findTask(taskId: taskId, columnIndex: columnIndex) {
                 EditTaskView(
                     kanbanViewModel: kanbanViewModel,
                     boardId: board.id,
-                    columnIndex: selectedColumnIndex,
+                    columnIndex: columnIndex,
                     task: task
                 )
             }
