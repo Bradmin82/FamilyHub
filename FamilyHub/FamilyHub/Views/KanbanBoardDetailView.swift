@@ -123,7 +123,7 @@ struct KanbanColumnView: View {
     @State private var showingRenameAlert = false
     @State private var showingDeleteConfirmation = false
     @State private var newColumnName = ""
-    @State private var draggedTask: KanbanTask?
+    @State private var draggedOverIndex: Int?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -152,43 +152,48 @@ struct KanbanColumnView: View {
             }
 
             ScrollView {
-                VStack(spacing: 10) {
-                    ForEach(column.tasks) { task in
-                        HStack(spacing: 8) {
-                            Image(systemName: "line.3.horizontal")
-                                .foregroundColor(.gray)
-                                .font(.caption)
-
-                            KanbanTaskCardView(task: task)
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            onTaskTapped(task)
-                        }
-                        .onDrag {
-                            self.draggedTask = task
-                            return NSItemProvider(object: "\(boardId)|\(columnIndex)|\(task.id)" as NSString)
-                        }
-                    }
-                    .onDelete { indexSet in
-                        for index in indexSet {
-                            let task = column.tasks[index]
-                            kanbanViewModel.deleteTask(boardId: boardId, columnIndex: columnIndex, taskId: task.id)
-                        }
-                    }
-                    .onInsert(of: [.text]) { index, providers in
-                        handleDrop(at: index, providers: providers)
-                    }
-
-                    // Drop zone at the end of column
-                    Rectangle()
-                        .fill(Color.clear)
-                        .frame(height: 50)
-                        .onDrop(of: [.text], delegate: ColumnDropDelegate(
+                VStack(spacing: 4) {
+                    // Drop zone at the top
+                    DropZoneView(isHighlighted: draggedOverIndex == 0)
+                        .onDrop(of: [UTType.plainText], delegate: TaskDropDelegate(
                             boardId: boardId,
                             targetColumnIndex: columnIndex,
-                            kanbanViewModel: kanbanViewModel
+                            targetTaskIndex: 0,
+                            kanbanViewModel: kanbanViewModel,
+                            onDragOver: { draggedOverIndex = 0 },
+                            onDragExit: { draggedOverIndex = nil }
                         ))
+
+                    ForEach(Array(column.tasks.enumerated()), id: \.element.id) { index, task in
+                        VStack(spacing: 4) {
+                            KanbanTaskCardView(task: task)
+                                .onTapGesture {
+                                    onTaskTapped(task)
+                                }
+                                .draggable("\(boardId)|\(columnIndex)|\(task.id)") {
+                                    // Preview while dragging
+                                    VStack {
+                                        Text(task.title)
+                                            .font(.headline)
+                                            .padding()
+                                            .background(Color(.systemBackground))
+                                            .cornerRadius(8)
+                                            .shadow(radius: 4)
+                                    }
+                                }
+
+                            // Drop zone after each task
+                            DropZoneView(isHighlighted: draggedOverIndex == index + 1)
+                                .onDrop(of: [UTType.plainText], delegate: TaskDropDelegate(
+                                    boardId: boardId,
+                                    targetColumnIndex: columnIndex,
+                                    targetTaskIndex: index + 1,
+                                    kanbanViewModel: kanbanViewModel,
+                                    onDragOver: { draggedOverIndex = index + 1 },
+                                    onDragExit: { draggedOverIndex = nil }
+                                ))
+                        }
+                    }
 
                     Button(action: onAddTask) {
                         HStack {
@@ -201,6 +206,7 @@ struct KanbanColumnView: View {
                         .background(Color.blue.opacity(0.1))
                         .cornerRadius(8)
                     }
+                    .padding(.top, 8)
                 }
                 .padding(.horizontal)
             }
@@ -228,88 +234,99 @@ struct KanbanColumnView: View {
             Text("Are you sure you want to delete this column? All tasks in it will be lost.")
         }
     }
+}
 
-    private func handleDrop(at index: Int, providers: [NSItemProvider]) {
-        guard let provider = providers.first else { return }
+// Drop zone indicator
+struct DropZoneView: View {
+    let isHighlighted: Bool
 
-        provider.loadItem(forTypeIdentifier: "public.text", options: nil) { (item, error) in
-            guard let data = item as? Data,
-                  let dragInfo = String(data: data, encoding: .utf8) else {
-                return
-            }
-
-            let components = dragInfo.components(separatedBy: "|")
-            guard components.count == 3,
-                  let fromColumnIndex = Int(components[1]) else {
-                return
-            }
-
-            let sourceBoardId = components[0]
-            let taskId = components[2]
-
-            DispatchQueue.main.async {
-                // Moving between columns
-                if fromColumnIndex != columnIndex {
-                    kanbanViewModel.moveTask(
-                        boardId: sourceBoardId,
-                        fromColumn: fromColumnIndex,
-                        toColumn: columnIndex,
-                        taskId: taskId
-                    )
-                }
-                // TODO: Handle reordering within same column
-            }
-        }
+    var body: some View {
+        Rectangle()
+            .fill(isHighlighted ? Color.blue.opacity(0.4) : Color.gray.opacity(0.1))
+            .frame(height: 30)
+            .cornerRadius(4)
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [5]))
+                    .foregroundColor(isHighlighted ? Color.blue : Color.gray.opacity(0.3))
+            )
     }
 }
 
-// Drop delegate for dropping tasks into columns
-struct ColumnDropDelegate: DropDelegate {
+// Drop delegate for dropping tasks at specific positions
+struct TaskDropDelegate: DropDelegate {
     let boardId: String
     let targetColumnIndex: Int
+    let targetTaskIndex: Int
     let kanbanViewModel: KanbanViewModel
+    let onDragOver: () -> Void
+    let onDragExit: () -> Void
 
     func performDrop(info: DropInfo) -> Bool {
-        guard let itemProvider = info.itemProviders(for: [.text]).first else {
+        print("🎯 Attempting to perform drop at column \(targetColumnIndex), index \(targetTaskIndex)")
+
+        guard let itemProvider = info.itemProviders(for: [UTType.plainText]).first else {
+            print("❌ No item provider found for plainText")
+            onDragExit()
             return false
         }
 
-        itemProvider.loadItem(forTypeIdentifier: "public.text", options: nil) { (item, error) in
-            guard let data = item as? Data,
-                  let dragInfo = String(data: data, encoding: .utf8) else {
+        _ = itemProvider.loadObject(ofClass: String.self) { (dragInfo, error) in
+            if let error = error {
+                print("❌ Error loading data: \(error)")
+                DispatchQueue.main.async { self.onDragExit() }
                 return
             }
+
+            guard let dragInfo = dragInfo else {
+                print("❌ Could not decode drag data")
+                DispatchQueue.main.async { self.onDragExit() }
+                return
+            }
+
+            print("📦 Drag data received: \(dragInfo)")
 
             let components = dragInfo.components(separatedBy: "|")
             guard components.count == 3,
                   let fromColumnIndex = Int(components[1]) else {
+                print("❌ Invalid drag data format: expected 3 components, got \(components.count)")
+                DispatchQueue.main.async { self.onDragExit() }
                 return
             }
 
             let sourceBoardId = components[0]
             let taskId = components[2]
 
-            // Only move if dropping in a different column
-            if fromColumnIndex != targetColumnIndex {
-                DispatchQueue.main.async {
-                    kanbanViewModel.moveTask(
-                        boardId: sourceBoardId,
-                        fromColumn: fromColumnIndex,
-                        toColumn: targetColumnIndex,
-                        taskId: taskId
-                    )
-                }
+            print("✅ Moving task \(taskId) from column \(fromColumnIndex) to column \(targetColumnIndex) at index \(targetTaskIndex)")
+
+            DispatchQueue.main.async {
+                self.kanbanViewModel.moveTask(
+                    boardId: sourceBoardId,
+                    fromColumn: fromColumnIndex,
+                    toColumn: targetColumnIndex,
+                    taskId: taskId,
+                    toIndex: targetTaskIndex
+                )
+                self.onDragExit()
             }
         }
         return true
     }
 
     func validateDrop(info: DropInfo) -> Bool {
-        return info.hasItemsConforming(to: [.text])
+        let canDrop = info.hasItemsConforming(to: [UTType.plainText])
+        print("🔍 Validating drop at column \(targetColumnIndex), index \(targetTaskIndex): \(canDrop)")
+        return canDrop
     }
 
     func dropEntered(info: DropInfo) {
-        // Optional: Add visual feedback when hovering over column
+        print("👆 Drop entered at column \(targetColumnIndex), index \(targetTaskIndex)")
+        onDragOver()
+    }
+
+    func dropExited(info: DropInfo) {
+        print("👋 Drop exited")
+        onDragExit()
     }
 }
 

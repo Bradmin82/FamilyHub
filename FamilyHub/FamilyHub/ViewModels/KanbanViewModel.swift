@@ -95,6 +95,32 @@ class KanbanViewModel: ObservableObject {
         }
     }
 
+    func moveTask(boardId: String, fromColumn: Int, toColumn: Int, taskId: String, toIndex: Int) {
+        let boardRef = db.collection("kanbanBoards").document(boardId)
+
+        boardRef.getDocument { [weak self] snapshot, error in
+            guard var board = try? snapshot?.data(as: KanbanBoard.self) else { return }
+
+            if let taskIndex = board.columns[fromColumn].tasks.firstIndex(where: { $0.id == taskId }) {
+                let task = board.columns[fromColumn].tasks.remove(at: taskIndex)
+
+                // If moving within the same column, adjust index if needed
+                var insertIndex = toIndex
+                if fromColumn == toColumn && taskIndex < toIndex {
+                    insertIndex -= 1
+                }
+
+                // Ensure index is valid
+                insertIndex = min(insertIndex, board.columns[toColumn].tasks.count)
+                insertIndex = max(0, insertIndex)
+
+                board.columns[toColumn].tasks.insert(task, at: insertIndex)
+                try? self?.db.collection("kanbanBoards").document(boardId).setData(from: board)
+                print("✅ Task moved to position \(insertIndex)")
+            }
+        }
+    }
+
     // Edit a task
     func updateTask(boardId: String, columnIndex: Int, task: KanbanTask) {
         let boardRef = db.collection("kanbanBoards").document(boardId)
