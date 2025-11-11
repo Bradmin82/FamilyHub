@@ -15,5 +15,7 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>FamilyHub sends you notifications about family posts, board updates, and task assignments to keep you connected with your family.</string>
 </dict>
 </plist>
