@@ -28,40 +28,45 @@ struct FamilyManagementView: View {
             Form {
                 if let family = familyViewModel.currentFamily {
                     Section(header: Text("Family Information")) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
                                 Text(family.name)
                                     .font(.headline)
-
-                                HStack {
-                                    Text("Family Code:")
-                                        .foregroundColor(.gray)
-                                    Text(family.code)
-                                        .fontWeight(.semibold)
+                                Spacer()
+                                if isAdmin {
                                     Button(action: {
-                                        UIPasteboard.general.string = family.code
-                                        alertMessage = "Family code copied!"
-                                        showingAlert = true
+                                        editedFamilyName = family.name
+                                        showingEditName = true
                                     }) {
-                                        Image(systemName: "doc.on.doc")
+                                        Text("Edit")
+                                            .font(.caption)
                                             .foregroundColor(.blue)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 6)
+                                            .background(Color.blue.opacity(0.1))
+                                            .cornerRadius(6)
                                     }
+                                    .buttonStyle(PlainButtonStyle())
                                 }
-                                .font(.subheadline)
                             }
 
-                            Spacer()
-
-                            if isAdmin {
+                            HStack {
+                                Text("Family Code:")
+                                    .foregroundColor(.gray)
+                                Text(family.code)
+                                    .fontWeight(.semibold)
                                 Button(action: {
-                                    editedFamilyName = family.name
-                                    showingEditName = true
+                                    UIPasteboard.general.string = family.code
+                                    alertMessage = "Family code copied!"
+                                    showingAlert = true
                                 }) {
-                                    Text("Edit")
-                                        .font(.caption)
+                                    Image(systemName: "doc.on.doc")
                                         .foregroundColor(.blue)
+                                        .padding(6)
                                 }
+                                .buttonStyle(PlainButtonStyle())
                             }
+                            .font(.subheadline)
                         }
                     }
 

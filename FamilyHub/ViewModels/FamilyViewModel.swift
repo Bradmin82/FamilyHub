@@ -245,7 +245,7 @@ class FamilyViewModel: ObservableObject {
                     }
 
                     // Add to toFamily's relatedFamilyIds
-                    toFamilyRef.updateData([
+                    toFamilyRef?.updateData([
                         "relatedFamilyIds": FieldValue.arrayUnion([fromFamilyId])
                     ]) { error in
                         if let error = error {
