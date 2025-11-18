@@ -26,6 +26,8 @@ class FamilyViewModel: ObservableObject {
     @Published var currentFamily: Family?
     @Published var familyMembers: [AppUser] = []
     @Published var pendingInvites: [FamilyInvite] = []
+    @Published var relatedFamilies: [Family] = []
+    @Published var relatedFamilyMembers: [String: [AppUser]] = [:] // familyId -> members
     @Published var errorMessage: String?
     @Published var successMessage: String?
 
@@ -405,6 +407,135 @@ class FamilyViewModel: ObservableObject {
                     print("✅ Member unsilenced")
                     self?.successMessage = "Member unsilenced"
                     completion(true)
+                }
+            }
+        }
+    }
+
+    // Load related families
+    func loadRelatedFamilies(relatedFamilyIds: [String]) {
+        guard !relatedFamilyIds.isEmpty else {
+            self.relatedFamilies = []
+            self.relatedFamilyMembers = [:]
+            return
+        }
+
+        let batches = relatedFamilyIds.chunked(into: 10)
+        var allFamilies: [Family] = []
+        let group = DispatchGroup()
+
+        for batch in batches {
+            group.enter()
+            db.collection("families")
+                .whereField(FieldPath.documentID(), in: batch)
+                .getDocuments { [weak self] snapshot, error in
+                    if let error = error {
+                        print("❌ Error loading related families: \(error.localizedDescription)")
+                    } else {
+                        let families = snapshot?.documents.compactMap { doc in
+                            try? doc.data(as: Family.self)
+                        } ?? []
+                        allFamilies.append(contentsOf: families)
+                    }
+                    group.leave()
+                }
+        }
+
+        group.notify(queue: .main) { [weak self] in
+            self?.relatedFamilies = allFamilies
+            print("✅ Loaded \(allFamilies.count) related families")
+
+            // Load members for each related family
+            for family in allFamilies {
+                self?.loadRelatedFamilyMembers(familyId: family.id, memberIds: family.memberIds)
+            }
+        }
+    }
+
+    // Load members for a specific related family
+    private func loadRelatedFamilyMembers(familyId: String, memberIds: [String]) {
+        guard !memberIds.isEmpty else {
+            self.relatedFamilyMembers[familyId] = []
+            return
+        }
+
+        let batches = memberIds.chunked(into: 10)
+        var allMembers: [AppUser] = []
+        let group = DispatchGroup()
+
+        for batch in batches {
+            group.enter()
+            db.collection("users")
+                .whereField(FieldPath.documentID(), in: batch)
+                .getDocuments { snapshot, error in
+                    if let error = error {
+                        print("❌ Error loading related family members: \(error.localizedDescription)")
+                    } else {
+                        let members = snapshot?.documents.compactMap { doc in
+                            try? doc.data(as: AppUser.self)
+                        } ?? []
+                        allMembers.append(contentsOf: members)
+                    }
+                    group.leave()
+                }
+        }
+
+        group.notify(queue: .main) { [weak self] in
+            self?.relatedFamilyMembers[familyId] = allMembers
+            print("✅ Loaded \(allMembers.count) members for family \(familyId)")
+        }
+    }
+
+    // Unlink related family (bidirectional removal)
+    func unlinkRelatedFamily(fromFamilyId: String, relatedFamilyId: String, requesterId: String, completion: @escaping (Bool) -> Void) {
+        let fromFamilyRef = db.collection("families").document(fromFamilyId)
+
+        fromFamilyRef.getDocument { [weak self] snapshot, error in
+            if let error = error {
+                print("❌ Error getting family: \(error.localizedDescription)")
+                self?.errorMessage = error.localizedDescription
+                completion(false)
+                return
+            }
+
+            guard let family = try? snapshot?.data(as: Family.self) else {
+                self?.errorMessage = "Family not found"
+                completion(false)
+                return
+            }
+
+            // Check if requester is the creator
+            guard family.createdBy == requesterId else {
+                self?.errorMessage = "Only the family creator can unlink related families"
+                completion(false)
+                return
+            }
+
+            // Remove from fromFamily's relatedFamilyIds
+            fromFamilyRef.updateData([
+                "relatedFamilyIds": FieldValue.arrayRemove([relatedFamilyId])
+            ]) { error in
+                if let error = error {
+                    print("❌ Error unlinking family: \(error.localizedDescription)")
+                    self?.errorMessage = error.localizedDescription
+                    completion(false)
+                    return
+                }
+
+                // Remove from toFamily's relatedFamilyIds
+                let toFamilyRef = self?.db.collection("families").document(relatedFamilyId)
+                toFamilyRef?.updateData([
+                    "relatedFamilyIds": FieldValue.arrayRemove([fromFamilyId])
+                ]) { error in
+                    if let error = error {
+                        print("❌ Error unlinking family: \(error.localizedDescription)")
+                        self?.errorMessage = error.localizedDescription
+                        completion(false)
+                    } else {
+                        print("✅ Families unlinked successfully")
+                        self?.successMessage = "Family unlinked successfully!"
+                        completion(true)
+                    }
                 }
             }
         }

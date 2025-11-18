@@ -9,6 +9,8 @@ struct AppUser: Identifiable, Codable {
     var familyId: String?
     var relatedFamilyIds: [String] // IDs of related families user is part of
     var joinedDate: Date
+    var lastSeen: Date? // Last time user was active
+    var isOnline: Bool // Current online status
 
     // Default sharing preferences
     var defaultPostPrivacy: Privacy
@@ -24,6 +26,8 @@ struct AppUser: Identifiable, Codable {
         self.familyId = familyId
         self.relatedFamilyIds = []
         self.joinedDate = Date()
+        self.lastSeen = Date()
+        self.isOnline = true
         self.defaultPostPrivacy = .private
         self.defaultBoardPrivacy = .private
         self.defaultPhotoPrivacy = .private
@@ -40,6 +44,8 @@ struct AppUser: Identifiable, Codable {
         familyId = try? container.decode(String.self, forKey: .familyId)
         relatedFamilyIds = (try? container.decode([String].self, forKey: .relatedFamilyIds)) ?? []
         joinedDate = try container.decode(Date.self, forKey: .joinedDate)
+        lastSeen = try? container.decode(Date.self, forKey: .lastSeen)
+        isOnline = (try? container.decode(Bool.self, forKey: .isOnline)) ?? false
 
         // Default privacy settings for existing users
         defaultPostPrivacy = (try? container.decode(Privacy.self, forKey: .defaultPostPrivacy)) ?? .private
@@ -47,3 +53,4 @@ struct AppUser: Identifiable, Codable {
         defaultPhotoPrivacy = (try? container.decode(Privacy.self, forKey: .defaultPhotoPrivacy)) ?? .private
     }
 }
+

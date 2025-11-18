@@ -133,6 +133,59 @@ struct ProfileView: View {
                     }
                     .padding(.horizontal)
 
+                    // Related Families Section
+                    if !familyViewModel.relatedFamilies.isEmpty {
+                        Divider()
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text("Related Families")
+                                    .font(.headline)
+                                Spacer()
+                                Button("Manage") {
+                                    showingFamilyManagement = true
+                                }
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                            }
+
+                            ForEach(familyViewModel.relatedFamilies) { relatedFamily in
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(relatedFamily.name)
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+
+                                    if let members = familyViewModel.relatedFamilyMembers[relatedFamily.id] {
+                                        HStack(spacing: 4) {
+                                            Text("\(members.count) member(s)")
+                                                .font(.caption)
+                                                .foregroundColor(.gray)
+
+                                            Text("•")
+                                                .font(.caption)
+                                                .foregroundColor(.gray)
+
+                                            let onlineCount = members.filter { $0.isOnline }.count
+                                            HStack(spacing: 2) {
+                                                Circle()
+                                                    .fill(Color.green)
+                                                    .frame(width: 6, height: 6)
+                                                Text("\(onlineCount) online")
+                                            }
+                                            .font(.caption)
+                                            .foregroundColor(.gray)
+                                        }
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding()
+                                .background(Color(.systemGray6))
+                                .cornerRadius(10)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+
                     Divider()
 
                     // Settings Section
@@ -205,6 +258,10 @@ struct ProfileView: View {
                 )
                 if let familyId = authViewModel.currentUser?.familyId {
                     familyViewModel.loadFamily(familyId: familyId)
+                }
+                // Load related families
+                if let relatedFamilyIds = authViewModel.currentUser?.relatedFamilyIds {
+                    familyViewModel.loadRelatedFamilies(relatedFamilyIds: relatedFamilyIds)
                 }
             }
     }

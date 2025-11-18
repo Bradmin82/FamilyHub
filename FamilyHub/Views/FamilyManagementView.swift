@@ -15,6 +15,8 @@ struct FamilyManagementView: View {
     @State private var relatedFamilyCode = ""
     @State private var memberToSilence: AppUser?
     @State private var showingSilenceConfirmation = false
+    @State private var familyToUnlink: Family?
+    @State private var showingUnlinkConfirmation = false
     @State private var isProcessing = false
 
     var isAdmin: Bool {
@@ -136,9 +138,16 @@ struct FamilyManagementView: View {
                                         .foregroundColor(.gray)
                                 }
 
-                                VStack(alignment: .leading) {
-                                    Text(member.displayName)
-                                        .fontWeight(.semibold)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack(spacing: 6) {
+                                        Text(member.displayName)
+                                            .fontWeight(.semibold)
+                                        if member.isOnline {
+                                            Circle()
+                                                .fill(Color.green)
+                                                .frame(width: 8, height: 8)
+                                        }
+                                    }
                                     Text(member.email)
                                         .font(.caption)
                                         .foregroundColor(.gray)
@@ -197,6 +206,96 @@ struct FamilyManagementView: View {
                             }
                         }
                     }
+
+                    // Related Families Section
+                    if !familyViewModel.relatedFamilies.isEmpty {
+                        ForEach(familyViewModel.relatedFamilies) { relatedFamily in
+                            Section(header: HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Related Family: \(relatedFamily.name)")
+                                        .font(.headline)
+                                    if let members = familyViewModel.relatedFamilyMembers[relatedFamily.id] {
+                                        let onlineCount = members.filter { $0.isOnline }.count
+                                        Text("\(members.count) members • \(onlineCount) online")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                if isAdmin {
+                                    Button(action: {
+                                        familyToUnlink = relatedFamily
+                                        showingUnlinkConfirmation = true
+                                    }) {
+                                        Text("Unlink")
+                                            .font(.caption)
+                                            .foregroundColor(.red)
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 5)
+                                            .background(Color.red.opacity(0.1))
+                                            .cornerRadius(6)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                }
+                            }) {
+                                if let members = familyViewModel.relatedFamilyMembers[relatedFamily.id] {
+                                    ForEach(members) { member in
+                                        HStack {
+                                            if let profileImageURL = member.profileImageURL,
+                                               let url = URL(string: profileImageURL) {
+                                                AsyncImage(url: url) { image in
+                                                    image
+                                                        .resizable()
+                                                        .scaledToFill()
+                                                } placeholder: {
+                                                    Image(systemName: "person.circle.fill")
+                                                        .resizable()
+                                                        .foregroundColor(.gray)
+                                                }
+                                                .frame(width: 40, height: 40)
+                                                .clipShape(Circle())
+                                            } else {
+                                                Image(systemName: "person.circle.fill")
+                                                    .font(.system(size: 40))
+                                                    .foregroundColor(.gray)
+                                            }
+
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                HStack(spacing: 6) {
+                                                    Text(member.displayName)
+                                                        .fontWeight(.semibold)
+                                                    if member.isOnline {
+                                                        Circle()
+                                                            .fill(Color.green)
+                                                            .frame(width: 8, height: 8)
+                                                    }
+                                                }
+                                                Text(member.email)
+                                                    .font(.caption)
+                                                    .foregroundColor(.gray)
+                                            }
+
+                                            Spacer()
+
+                                            if member.id == relatedFamily.createdBy {
+                                                Text("Creator")
+                                                    .font(.caption)
+                                                    .padding(.horizontal, 8)
+                                                    .padding(.vertical, 4)
+                                                    .background(Color.purple.opacity(0.2))
+                                                    .foregroundColor(.purple)
+                                                    .cornerRadius(4)
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Text("Loading members...")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                }
+                            }
+                        }
+                    }
                 } else {
                     Section {
                         Button("Set up your family") {
@@ -251,6 +350,24 @@ struct FamilyManagementView: View {
             } message: {
                 if let member = memberToSilence {
                     Text("Silence \(member.displayName)? They will remain in the family but won't be able to post or comment.")
+                }
+            }
+            .alert("Unlink Family", isPresented: $showingUnlinkConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Unlink", role: .destructive) {
+                    if let relatedFamily = familyToUnlink {
+                        unlinkFamily(relatedFamily)
+                    }
+                }
+            } message: {
+                if let relatedFamily = familyToUnlink {
+                    Text("Are you sure you want to unlink \(relatedFamily.name)? This will remove the family connection.")
+                }
+            }
+            .onAppear {
+                // Load related families when view appears
+                if let currentFamily = familyViewModel.currentFamily {
+                    familyViewModel.loadRelatedFamilies(relatedFamilyIds: currentFamily.relatedFamilyIds)
                 }
             }
         }
@@ -367,6 +484,29 @@ struct FamilyManagementView: View {
             if success {
                 alertMessage = "\(member.displayName) has been unsilenced"
                 showingAlert = true
+            } else if let errorMessage = familyViewModel.errorMessage {
+                alertMessage = errorMessage
+                showingAlert = true
+            }
+        }
+    }
+
+    private func unlinkFamily(_ relatedFamily: Family) {
+        guard let family = familyViewModel.currentFamily,
+              let userId = authViewModel.currentUser?.id else { return }
+
+        isProcessing = true
+        familyViewModel.unlinkRelatedFamily(
+            fromFamilyId: family.id,
+            relatedFamilyId: relatedFamily.id,
+            requesterId: userId
+        ) { [self] success in
+            isProcessing = false
+            if success {
+                alertMessage = "Unlinked from \(relatedFamily.name)"
+                showingAlert = true
+                // Refresh related families list
+                familyViewModel.loadRelatedFamilies(relatedFamilyIds: family.relatedFamilyIds.filter { $0 != relatedFamily.id })
             } else if let errorMessage = familyViewModel.errorMessage {
                 alertMessage = errorMessage
                 showingAlert = true
