@@ -188,6 +188,11 @@ class AuthViewModel: ObservableObject {
     }
 
     func signOut() {
+        // Set user offline before signing out
+        if let userId = currentUser?.id {
+            updateOnlineStatus(userId: userId, isOnline: false)
+        }
+
         do {
             try auth.signOut()
             isAuthenticated = false
@@ -249,8 +254,25 @@ class AuthViewModel: ObservableObject {
                 let user = try snapshot.data(as: AppUser.self)
                 self?.currentUser = user
                 self?.isAuthenticated = true
+                // Update online status when user loads
+                self?.updateOnlineStatus(userId: userId, isOnline: true)
             } catch {
                 self?.errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func updateOnlineStatus(userId: String, isOnline: Bool) {
+        let updates: [String: Any] = [
+            "isOnline": isOnline,
+            "lastSeen": Date()
+        ]
+
+        db.collection("users").document(userId).updateData(updates) { error in
+            if let error = error {
+                print("❌ Error updating online status: \(error.localizedDescription)")
+            } else {
+                print("✅ Online status updated: \(isOnline)")
             }
         }
     }

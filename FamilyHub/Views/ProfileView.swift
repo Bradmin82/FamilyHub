@@ -7,6 +7,7 @@ struct ProfileView: View {
     @State private var showingEditProfile = false
     @State private var showingFamilyManagement = false
     @State private var showingSharingSettings = false
+    @State private var selectedFamilyTab = 0 // 0 = Family, 1 = Related Families
 
     var userPosts: [Post] {
         postViewModel.posts.filter { $0.userId == authViewModel.currentUser?.id }
@@ -89,10 +90,10 @@ struct ProfileView: View {
 
                     Divider()
 
-                    // Family Section
+                    // Family & Related Families Tabbed Section
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
-                            Text("Family")
+                            Text(familyViewModel.currentFamily != nil ? "My Families" : "Family")
                                 .font(.headline)
                             Spacer()
                             Button("Manage") {
@@ -103,23 +104,179 @@ struct ProfileView: View {
                         }
 
                         if let family = familyViewModel.currentFamily {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(family.name)
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
+                            // Tabs for Family vs Related Families
+                            Picker("", selection: $selectedFamilyTab) {
+                                Text("Family").tag(0)
+                                if !familyViewModel.relatedFamilies.isEmpty {
+                                    Text("Related Families").tag(1)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .padding(.bottom, 8)
 
-                                Text("Family Code: \(family.code)")
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
+                            // Tab Content
+                            if selectedFamilyTab == 0 {
+                                // Immediate Family Tab
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(family.name)
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
 
-                                Text("\(familyViewModel.familyMembers.count) member(s)")
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
+                                        Text("Family Code: \(family.code)")
+                                            .font(.caption)
+                                            .foregroundColor(.gray)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(.bottom, 8)
+
+                                // Family Members List
+                                VStack(spacing: 8) {
+                                    ForEach(familyViewModel.familyMembers) { member in
+                                        HStack(spacing: 12) {
+                                            // Profile Image
+                                            if let profileImageURL = member.profileImageURL,
+                                               let url = URL(string: profileImageURL) {
+                                                AsyncImage(url: url) { image in
+                                                    image
+                                                        .resizable()
+                                                        .scaledToFill()
+                                                } placeholder: {
+                                                    Image(systemName: "person.circle.fill")
+                                                        .resizable()
+                                                        .foregroundColor(.gray)
+                                                }
+                                                .frame(width: 36, height: 36)
+                                                .clipShape(Circle())
+                                            } else {
+                                                Image(systemName: "person.circle.fill")
+                                                    .font(.system(size: 36))
+                                                    .foregroundColor(.gray)
+                                            }
+
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                HStack(spacing: 6) {
+                                                    Text(member.displayName)
+                                                        .font(.caption)
+                                                        .fontWeight(.medium)
+                                                    if member.isOnline {
+                                                        Circle()
+                                                            .fill(Color.green)
+                                                            .frame(width: 6, height: 6)
+                                                    }
+                                                }
+
+                                                if let lastSeen = member.lastSeen {
+                                                    if member.isOnline {
+                                                        Text("Online now")
+                                                            .font(.system(size: 10))
+                                                            .foregroundColor(.green)
+                                                    } else {
+                                                        Text("Last seen \(timeAgoSince(lastSeen))")
+                                                            .font(.system(size: 10))
+                                                            .foregroundColor(.gray)
+                                                    }
+                                                }
+                                            }
+
+                                            Spacer()
+                                        }
+                                    }
+                                }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding()
                             .background(Color(.systemGray6))
                             .cornerRadius(10)
+                            } else {
+                                // Related Families Tab
+                                ForEach(familyViewModel.relatedFamilies) { relatedFamily in
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        HStack {
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text(relatedFamily.name)
+                                                    .font(.subheadline)
+                                                    .fontWeight(.semibold)
+
+                                                if let members = familyViewModel.relatedFamilyMembers[relatedFamily.id] {
+                                                    let onlineCount = members.filter { $0.isOnline }.count
+                                                    Text("\(members.count) members • \(onlineCount) online")
+                                                        .font(.caption)
+                                                        .foregroundColor(.gray)
+                                                }
+                                            }
+                                            Spacer()
+                                        }
+                                        .padding(.bottom, 8)
+
+                                        // Related Family Members List
+                                        if let members = familyViewModel.relatedFamilyMembers[relatedFamily.id] {
+                                            VStack(spacing: 8) {
+                                                ForEach(members) { member in
+                                                    HStack(spacing: 12) {
+                                                        // Profile Image
+                                                        if let profileImageURL = member.profileImageURL,
+                                                           let url = URL(string: profileImageURL) {
+                                                            AsyncImage(url: url) { image in
+                                                                image
+                                                                    .resizable()
+                                                                    .scaledToFill()
+                                                            } placeholder: {
+                                                                Image(systemName: "person.circle.fill")
+                                                                    .resizable()
+                                                                    .foregroundColor(.gray)
+                                                            }
+                                                            .frame(width: 36, height: 36)
+                                                            .clipShape(Circle())
+                                                        } else {
+                                                            Image(systemName: "person.circle.fill")
+                                                                .font(.system(size: 36))
+                                                                .foregroundColor(.gray)
+                                                        }
+
+                                                        VStack(alignment: .leading, spacing: 2) {
+                                                            HStack(spacing: 6) {
+                                                                Text(member.displayName)
+                                                                    .font(.caption)
+                                                                    .fontWeight(.medium)
+                                                                if member.isOnline {
+                                                                    Circle()
+                                                                        .fill(Color.green)
+                                                                        .frame(width: 6, height: 6)
+                                                                }
+                                                            }
+
+                                                            if let lastSeen = member.lastSeen {
+                                                                if member.isOnline {
+                                                                    Text("Online now")
+                                                                        .font(.system(size: 10))
+                                                                        .foregroundColor(.green)
+                                                                } else {
+                                                                    Text("Last seen \(timeAgoSince(lastSeen))")
+                                                                        .font(.system(size: 10))
+                                                                        .foregroundColor(.gray)
+                                                                }
+                                                            }
+                                                        }
+
+                                                        Spacer()
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            Text("Loading members...")
+                                                .font(.caption)
+                                                .foregroundColor(.gray)
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding()
+                                    .background(Color(.systemGray6))
+                                    .cornerRadius(10)
+                                }
+                            }
                         } else {
                             Button(action: { showingFamilyManagement = true }) {
                                 HStack {
@@ -132,59 +289,6 @@ struct ProfileView: View {
                         }
                     }
                     .padding(.horizontal)
-
-                    // Related Families Section
-                    if !familyViewModel.relatedFamilies.isEmpty {
-                        Divider()
-
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Text("Related Families")
-                                    .font(.headline)
-                                Spacer()
-                                Button("Manage") {
-                                    showingFamilyManagement = true
-                                }
-                                .font(.caption)
-                                .foregroundColor(.blue)
-                            }
-
-                            ForEach(familyViewModel.relatedFamilies) { relatedFamily in
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text(relatedFamily.name)
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
-
-                                    if let members = familyViewModel.relatedFamilyMembers[relatedFamily.id] {
-                                        HStack(spacing: 4) {
-                                            Text("\(members.count) member(s)")
-                                                .font(.caption)
-                                                .foregroundColor(.gray)
-
-                                            Text("•")
-                                                .font(.caption)
-                                                .foregroundColor(.gray)
-
-                                            let onlineCount = members.filter { $0.isOnline }.count
-                                            HStack(spacing: 2) {
-                                                Circle()
-                                                    .fill(Color.green)
-                                                    .frame(width: 6, height: 6)
-                                                Text("\(onlineCount) online")
-                                            }
-                                            .font(.caption)
-                                            .foregroundColor(.gray)
-                                        }
-                                    }
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding()
-                                .background(Color(.systemGray6))
-                                .cornerRadius(10)
-                            }
-                        }
-                        .padding(.horizontal)
-                    }
 
                     Divider()
 
@@ -264,5 +368,21 @@ struct ProfileView: View {
                     familyViewModel.loadRelatedFamilies(relatedFamilyIds: relatedFamilyIds)
                 }
             }
+    }
+
+    private func timeAgoSince(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let now = Date()
+        let components = calendar.dateComponents([.minute, .hour, .day], from: date, to: now)
+
+        if let day = components.day, day > 0 {
+            return day == 1 ? "1 day ago" : "\(day) days ago"
+        } else if let hour = components.hour, hour > 0 {
+            return hour == 1 ? "1 hour ago" : "\(hour) hours ago"
+        } else if let minute = components.minute, minute > 0 {
+            return minute == 1 ? "1 minute ago" : "\(minute) minutes ago"
+        } else {
+            return "Just now"
+        }
     }
 }
