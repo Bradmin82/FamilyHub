@@ -4,19 +4,22 @@ struct PhotoSharingView: View {
     @StateObject private var postViewModel = PostViewModel()
     @EnvironmentObject var authViewModel: AuthViewModel
     @State private var showingCreatePost = false
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
 
     var photoPosts: [Post] {
         postViewModel.posts.filter { !$0.imageURLs.isEmpty }
     }
 
-    let columns = [
-        GridItem(.flexible()),
-        GridItem(.flexible()),
-        GridItem(.flexible())
-    ]
+    var columns: [GridItem] {
+        if horizontalSizeClass == .regular {
+            return Array(repeating: GridItem(.flexible()), count: 6)
+        } else {
+            return Array(repeating: GridItem(.flexible()), count: 3)
+        }
+    }
 
     var body: some View {
-        NavigationView {
+        GeometryReader { geometry in
             ScrollView {
                 if photoPosts.isEmpty {
                     VStack(spacing: 20) {
@@ -44,31 +47,32 @@ struct PhotoSharingView: View {
                                     Rectangle()
                                         .fill(Color.gray.opacity(0.3))
                                 }
-                                .frame(width: (UIScreen.main.bounds.width / 3) - 2, height: (UIScreen.main.bounds.width / 3) - 2)
+                                .frame(width: (geometry.size.width / CGFloat(columns.count)) - 2,
+                                       height: (geometry.size.width / CGFloat(columns.count)) - 2)
                                 .clipped()
                             }
                         }
                     }
                 }
             }
-            .navigationTitle("Photos")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showingCreatePost = true }) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2)
-                    }
+        }
+        .navigationTitle("Photos")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: { showingCreatePost = true }) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title2)
                 }
             }
-            .sheet(isPresented: $showingCreatePost) {
-                CreatePostView(postViewModel: postViewModel)
-            }
-            .onAppear {
-                postViewModel.fetchPosts(
-                    userId: authViewModel.currentUser?.id,
-                    familyId: authViewModel.currentUser?.familyId
-                )
-            }
+        }
+        .sheet(isPresented: $showingCreatePost) {
+            CreatePostView(postViewModel: postViewModel)
+        }
+        .onAppear {
+            postViewModel.fetchPosts(
+                userId: authViewModel.currentUser?.id,
+                familyId: authViewModel.currentUser?.familyId
+            )
         }
     }
 }

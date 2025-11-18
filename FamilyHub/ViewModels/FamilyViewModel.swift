@@ -208,6 +208,207 @@ class FamilyViewModel: ObservableObject {
             print("✅ Loaded \(allMembers.count) family members")
         }
     }
+
+    // Link two families as related
+    func linkRelatedFamily(fromFamilyId: String, toFamilyCode: String, completion: @escaping (Bool) -> Void) {
+        // Find the family to link with by code
+        db.collection("families")
+            .whereField("code", isEqualTo: toFamilyCode.uppercased())
+            .getDocuments { [weak self] snapshot, error in
+                if let error = error {
+                    print("❌ Error finding family: \(error.localizedDescription)")
+                    self?.errorMessage = "Family code not found"
+                    completion(false)
+                    return
+                }
+
+                guard let targetFamily = snapshot?.documents.first,
+                      let targetFamilyData = try? targetFamily.data(as: Family.self) else {
+                    self?.errorMessage = "Family code not found"
+                    completion(false)
+                    return
+                }
+
+                // Add bidirectional relationship
+                let fromFamilyRef = self?.db.collection("families").document(fromFamilyId)
+                let toFamilyRef = self?.db.collection("families").document(targetFamilyData.id)
+
+                // Add to fromFamily's relatedFamilyIds
+                fromFamilyRef?.updateData([
+                    "relatedFamilyIds": FieldValue.arrayUnion([targetFamilyData.id])
+                ]) { error in
+                    if let error = error {
+                        print("❌ Error linking family: \(error.localizedDescription)")
+                        self?.errorMessage = error.localizedDescription
+                        completion(false)
+                        return
+                    }
+
+                    // Add to toFamily's relatedFamilyIds
+                    toFamilyRef.updateData([
+                        "relatedFamilyIds": FieldValue.arrayUnion([fromFamilyId])
+                    ]) { error in
+                        if let error = error {
+                            print("❌ Error linking family: \(error.localizedDescription)")
+                            self?.errorMessage = error.localizedDescription
+                            completion(false)
+                        } else {
+                            print("✅ Families linked successfully")
+                            self?.successMessage = "Family linked successfully!"
+                            completion(true)
+                        }
+                    }
+                }
+            }
+    }
+
+    // Remove member from family (creator only)
+    func removeMember(familyId: String, memberId: String, requesterId: String, completion: @escaping (Bool) -> Void) {
+        let familyRef = db.collection("families").document(familyId)
+
+        familyRef.getDocument { [weak self] snapshot, error in
+            if let error = error {
+                print("❌ Error getting family: \(error.localizedDescription)")
+                self?.errorMessage = error.localizedDescription
+                completion(false)
+                return
+            }
+
+            guard let family = try? snapshot?.data(as: Family.self) else {
+                self?.errorMessage = "Family not found"
+                completion(false)
+                return
+            }
+
+            // Check if requester is the creator
+            guard family.createdBy == requesterId else {
+                self?.errorMessage = "Only the family creator can remove members"
+                completion(false)
+                return
+            }
+
+            // Can't remove the creator
+            guard memberId != family.createdBy else {
+                self?.errorMessage = "Cannot remove the family creator"
+                completion(false)
+                return
+            }
+
+            // Remove member
+            familyRef.updateData([
+                "memberIds": FieldValue.arrayRemove([memberId]),
+                "silencedMemberIds": FieldValue.arrayRemove([memberId]) // Also remove from silenced if present
+            ]) { error in
+                if let error = error {
+                    print("❌ Error removing member: \(error.localizedDescription)")
+                    self?.errorMessage = error.localizedDescription
+                    completion(false)
+                } else {
+                    print("✅ Member removed successfully")
+                    self?.successMessage = "Member removed"
+
+                    // Remove familyId from user
+                    self?.db.collection("users").document(memberId).updateData([
+                        "familyId": FieldValue.delete(),
+                        "relatedFamilyIds": FieldValue.arrayRemove([familyId])
+                    ])
+
+                    completion(true)
+                }
+            }
+        }
+    }
+
+    // Silence member (creator only)
+    func silenceMember(familyId: String, memberId: String, requesterId: String, completion: @escaping (Bool) -> Void) {
+        let familyRef = db.collection("families").document(familyId)
+
+        familyRef.getDocument { [weak self] snapshot, error in
+            if let error = error {
+                print("❌ Error getting family: \(error.localizedDescription)")
+                self?.errorMessage = error.localizedDescription
+                completion(false)
+                return
+            }
+
+            guard let family = try? snapshot?.data(as: Family.self) else {
+                self?.errorMessage = "Family not found"
+                completion(false)
+                return
+            }
+
+            // Check if requester is the creator
+            guard family.createdBy == requesterId else {
+                self?.errorMessage = "Only the family creator can silence members"
+                completion(false)
+                return
+            }
+
+            // Can't silence the creator
+            guard memberId != family.createdBy else {
+                self?.errorMessage = "Cannot silence the family creator"
+                completion(false)
+                return
+            }
+
+            // Silence member
+            familyRef.updateData([
+                "silencedMemberIds": FieldValue.arrayUnion([memberId])
+            ]) { error in
+                if let error = error {
+                    print("❌ Error silencing member: \(error.localizedDescription)")
+                    self?.errorMessage = error.localizedDescription
+                    completion(false)
+                } else {
+                    print("✅ Member silenced")
+                    self?.successMessage = "Member silenced"
+                    completion(true)
+                }
+            }
+        }
+    }
+
+    // Unsilence member (creator only)
+    func unsilenceMember(familyId: String, memberId: String, requesterId: String, completion: @escaping (Bool) -> Void) {
+        let familyRef = db.collection("families").document(familyId)
+
+        familyRef.getDocument { [weak self] snapshot, error in
+            if let error = error {
+                print("❌ Error getting family: \(error.localizedDescription)")
+                self?.errorMessage = error.localizedDescription
+                completion(false)
+                return
+            }
+
+            guard let family = try? snapshot?.data(as: Family.self) else {
+                self?.errorMessage = "Family not found"
+                completion(false)
+                return
+            }
+
+            // Check if requester is the creator
+            guard family.createdBy == requesterId else {
+                self?.errorMessage = "Only the family creator can unsilence members"
+                completion(false)
+                return
+            }
+
+            // Unsilence member
+            familyRef.updateData([
+                "silencedMemberIds": FieldValue.arrayRemove([memberId])
+            ]) { error in
+                if let error = error {
+                    print("❌ Error unsilencing member: \(error.localizedDescription)")
+                    self?.errorMessage = error.localizedDescription
+                    completion(false)
+                } else {
+                    print("✅ Member unsilenced")
+                    self?.successMessage = "Member unsilenced"
+                    completion(true)
+                }
+            }
+        }
+    }
 }
 
 // Helper extension to chunk arrays

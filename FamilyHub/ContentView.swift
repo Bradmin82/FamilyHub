@@ -33,27 +33,61 @@ struct ContentView: View {
 }
 
 struct MainTabView: View {
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
+
     var body: some View {
-        TabView {
-            FeedView()
+        if horizontalSizeClass == .regular {
+            // iPad layout with sidebar
+            NavigationSplitView {
+                List {
+                    NavigationLink(destination: FeedView()) {
+                        Label("Feed", systemImage: "house.fill")
+                    }
+                    NavigationLink(destination: KanbanBoardListView()) {
+                        Label("Boards", systemImage: "square.grid.2x2.fill")
+                    }
+                    NavigationLink(destination: PhotoSharingView()) {
+                        Label("Photos", systemImage: "photo.fill")
+                    }
+                    NavigationLink(destination: ProfileView()) {
+                        Label("Profile", systemImage: "person.fill")
+                    }
+                }
+                .navigationTitle("FamilyConnection")
+            } detail: {
+                FeedView()
+            }
+        } else {
+            // iPhone layout with tabs
+            TabView {
+                NavigationStack {
+                    FeedView()
+                }
                 .tabItem {
                     Label("Feed", systemImage: "house.fill")
                 }
 
-            KanbanBoardListView()
+                NavigationStack {
+                    KanbanBoardListView()
+                }
                 .tabItem {
                     Label("Boards", systemImage: "square.grid.2x2.fill")
                 }
 
-            PhotoSharingView()
+                NavigationStack {
+                    PhotoSharingView()
+                }
                 .tabItem {
                     Label("Photos", systemImage: "photo.fill")
                 }
 
-            ProfileView()
+                NavigationStack {
+                    ProfileView()
+                }
                 .tabItem {
                     Label("Profile", systemImage: "person.fill")
                 }
+            }
         }
     }
 }

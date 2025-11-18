@@ -10,8 +10,10 @@ struct Post: Identifiable, Codable {
     var likes: [String] // Array of user IDs who liked
     var comments: [Comment]
     var privacy: Privacy // family or private
+    var familyId: String? // Family ID of the post creator
+    var relatedFamilyIds: [String] // Related family IDs of the post creator
 
-    init(id: String = UUID().uuidString, userId: String, userName: String, content: String, imageURLs: [String] = [], privacy: Privacy = .private) {
+    init(id: String = UUID().uuidString, userId: String, userName: String, content: String, imageURLs: [String] = [], privacy: Privacy = .private, familyId: String? = nil, relatedFamilyIds: [String] = []) {
         self.id = id
         self.userId = userId
         self.userName = userName
@@ -21,9 +23,11 @@ struct Post: Identifiable, Codable {
         self.likes = []
         self.comments = []
         self.privacy = privacy
+        self.familyId = familyId
+        self.relatedFamilyIds = relatedFamilyIds
     }
 
-    // Custom decoding to handle missing privacy field in existing posts
+    // Custom decoding to handle missing privacy field, familyId and relatedFamilyIds in existing posts
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
@@ -36,6 +40,8 @@ struct Post: Identifiable, Codable {
         comments = try container.decode([Comment].self, forKey: .comments)
         // Default to family for existing posts without privacy field
         privacy = (try? container.decode(Privacy.self, forKey: .privacy)) ?? .family
+        familyId = try? container.decode(String.self, forKey: .familyId)
+        relatedFamilyIds = (try? container.decode([String].self, forKey: .relatedFamilyIds)) ?? []
     }
 }
 

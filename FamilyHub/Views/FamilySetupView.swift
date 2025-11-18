@@ -32,6 +32,17 @@ struct FamilySetupView: View {
             .navigationTitle("Family Setup")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: {
+                        authViewModel.signOut()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "rectangle.portrait.and.arrow.right")
+                            Text("Logout")
+                        }
+                        .foregroundColor(.red)
+                    }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Skip for now") {
                         dismiss()

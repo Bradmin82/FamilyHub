@@ -42,24 +42,51 @@ class KanbanViewModel: ObservableObject {
             return false // Can't see other people's private boards
 
         case .family:
-            // Must be in the same immediate family
-            return familyId != nil
+            // Must be in the SAME immediate family as the board creator
+            guard let viewerFamilyId = familyId, let boardFamilyId = board.familyId else {
+                return false
+            }
+            return viewerFamilyId == boardFamilyId
 
         case .familyAndRelated:
-            // Must be in immediate family OR related families
-            return familyId != nil || !relatedFamilyIds.isEmpty
+            // Must be in the same immediate family OR same related families
+            if let viewerFamilyId = familyId, let boardFamilyId = board.familyId, viewerFamilyId == boardFamilyId {
+                return true // Same family
+            }
+            // Check if viewer's family is in board's related families OR vice versa
+            if let viewerFamilyId = familyId, board.relatedFamilyIds.contains(viewerFamilyId) {
+                return true
+            }
+            if let boardFamilyId = board.familyId, relatedFamilyIds.contains(boardFamilyId) {
+                return true
+            }
+            // Check if any of viewer's related families match board's related families
+            return !relatedFamilyIds.isEmpty && !board.relatedFamilyIds.isEmpty &&
+                   !Set(relatedFamilyIds).isDisjoint(with: Set(board.relatedFamilyIds))
 
         case .familyAndAllRelated:
-            // Must be in immediate family OR any related family
-            return familyId != nil || !relatedFamilyIds.isEmpty
+            // Must be in the same immediate family OR any related family
+            if let viewerFamilyId = familyId, let boardFamilyId = board.familyId, viewerFamilyId == boardFamilyId {
+                return true // Same family
+            }
+            // Check if viewer's family is in board's related families OR vice versa
+            if let viewerFamilyId = familyId, board.relatedFamilyIds.contains(viewerFamilyId) {
+                return true
+            }
+            if let boardFamilyId = board.familyId, relatedFamilyIds.contains(boardFamilyId) {
+                return true
+            }
+            // Check if any of viewer's related families match board's related families
+            return !relatedFamilyIds.isEmpty && !board.relatedFamilyIds.isEmpty &&
+                   !Set(relatedFamilyIds).isDisjoint(with: Set(board.relatedFamilyIds))
 
         case .public:
             return true // Everyone can see public boards
         }
     }
 
-    func createBoard(name: String, description: String, userId: String, privacy: Privacy = .private) {
-        let board = KanbanBoard(name: name, description: description, createdBy: userId, privacy: privacy)
+    func createBoard(name: String, description: String, userId: String, privacy: Privacy = .private, familyId: String? = nil, relatedFamilyIds: [String] = []) {
+        let board = KanbanBoard(name: name, description: description, createdBy: userId, privacy: privacy, familyId: familyId, relatedFamilyIds: relatedFamilyIds)
         do {
             try db.collection("kanbanBoards").document(board.id).setData(from: board)
         } catch {

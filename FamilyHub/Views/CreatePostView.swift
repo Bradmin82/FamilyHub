@@ -104,7 +104,17 @@ struct CreatePostView: View {
               let userName = authViewModel.currentUser?.displayName else { return }
 
         let imageData = selectedImages.compactMap { $0.jpegData(compressionQuality: 0.7) }
-        postViewModel.createPost(userId: userId, userName: userName, content: content, images: imageData, privacy: privacy)
+        let familyId = authViewModel.currentUser?.familyId
+        let relatedFamilyIds = authViewModel.currentUser?.relatedFamilyIds ?? []
+        postViewModel.createPost(
+            userId: userId,
+            userName: userName,
+            content: content,
+            images: imageData,
+            privacy: privacy,
+            familyId: familyId,
+            relatedFamilyIds: relatedFamilyIds
+        )
         dismiss()
     }
 }

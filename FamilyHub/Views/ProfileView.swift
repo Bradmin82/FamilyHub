@@ -13,8 +13,7 @@ struct ProfileView: View {
     }
 
     var body: some View {
-        NavigationView {
-            ScrollView {
+        ScrollView {
                 VStack(spacing: 20) {
                     // Profile Picture
                     if let profileImageURL = authViewModel.currentUser?.profileImageURL,
@@ -208,6 +207,5 @@ struct ProfileView: View {
                     familyViewModel.loadFamily(familyId: familyId)
                 }
             }
-        }
     }
 }

@@ -12,6 +12,10 @@ struct FamilyManagementView: View {
     @State private var editedFamilyName = ""
     @State private var memberToRemove: AppUser?
     @State private var showingRemoveConfirmation = false
+    @State private var relatedFamilyCode = ""
+    @State private var memberToSilence: AppUser?
+    @State private var showingSilenceConfirmation = false
+    @State private var isProcessing = false
 
     var isAdmin: Bool {
         guard let family = familyViewModel.currentFamily,
@@ -80,6 +84,31 @@ struct FamilyManagementView: View {
                         }
                     }
 
+                    Section(header: Text("Link Related Family")) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Connect with in-laws, extended family, or other related families")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+
+                            HStack {
+                                TextField("Enter family code", text: $relatedFamilyCode)
+                                    .textInputAutocapitalization(.characters)
+                                    .autocorrectionDisabled()
+
+                                Button("Link") {
+                                    linkRelatedFamily()
+                                }
+                                .disabled(relatedFamilyCode.isEmpty || isProcessing)
+                            }
+                        }
+
+                        if !family.relatedFamilyIds.isEmpty {
+                            Text("\(family.relatedFamilyIds.count) related family/families linked")
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                        }
+                    }
+
                     Section(header: Text("Family Members (\(familyViewModel.familyMembers.count))")) {
                         ForEach(familyViewModel.familyMembers) { member in
                             HStack {
@@ -121,12 +150,43 @@ struct FamilyManagementView: View {
                                         .foregroundColor(.blue)
                                         .cornerRadius(4)
                                 } else if isAdmin {
-                                    Button(action: {
-                                        memberToRemove = member
-                                        showingRemoveConfirmation = true
-                                    }) {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .foregroundColor(.red)
+                                    HStack(spacing: 12) {
+                                        // Silence/Unsilence button
+                                        if family.silencedMemberIds.contains(member.id) {
+                                            Button(action: {
+                                                unsilenceMember(member)
+                                            }) {
+                                                VStack(spacing: 2) {
+                                                    Image(systemName: "speaker.wave.2.fill")
+                                                        .font(.caption)
+                                                    Text("Unsilence")
+                                                        .font(.system(size: 8))
+                                                }
+                                                .foregroundColor(.orange)
+                                            }
+                                        } else {
+                                            Button(action: {
+                                                memberToSilence = member
+                                                showingSilenceConfirmation = true
+                                            }) {
+                                                VStack(spacing: 2) {
+                                                    Image(systemName: "speaker.slash.fill")
+                                                        .font(.caption)
+                                                    Text("Silence")
+                                                        .font(.system(size: 8))
+                                                }
+                                                .foregroundColor(.gray)
+                                            }
+                                        }
+
+                                        // Remove button
+                                        Button(action: {
+                                            memberToRemove = member
+                                            showingRemoveConfirmation = true
+                                        }) {
+                                            Image(systemName: "xmark.circle.fill")
+                                                .foregroundColor(.red)
+                                        }
                                     }
                                 }
                             }
@@ -176,6 +236,18 @@ struct FamilyManagementView: View {
                     Text("Are you sure you want to remove \(member.displayName) from the family?")
                 }
             }
+            .alert("Silence Member", isPresented: $showingSilenceConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Silence", role: .destructive) {
+                    if let member = memberToSilence {
+                        silenceMember(member)
+                    }
+                }
+            } message: {
+                if let member = memberToSilence {
+                    Text("Silence \(member.displayName)? They will remain in the family but won't be able to post or comment.")
+                }
+            }
         }
     }
 
@@ -199,29 +271,23 @@ struct FamilyManagementView: View {
     }
 
     private func removeMember(_ member: AppUser) {
-        guard var family = familyViewModel.currentFamily else { return }
+        guard let family = familyViewModel.currentFamily,
+              let userId = authViewModel.currentUser?.id else { return }
 
-        // Remove from family memberIds
-        family.memberIds.removeAll { $0 == member.id }
-
-        // Update family in Firestore
-        do {
-            try Firestore.firestore()
-                .collection("families")
-                .document(family.id)
-                .setData(from: family)
-
-            // Remove familyId from user
-            Firestore.firestore()
-                .collection("users")
-                .document(member.id)
-                .updateData(["familyId": FieldValue.delete()])
-
-            familyViewModel.currentFamily = family
-            alertMessage = "\(member.displayName) removed from family"
-            showingAlert = true
-        } catch {
-            print("❌ Error removing member: \(error.localizedDescription)")
+        isProcessing = true
+        familyViewModel.removeMember(
+            familyId: family.id,
+            memberId: member.id,
+            requesterId: userId
+        ) { [self] success in
+            isProcessing = false
+            if success {
+                alertMessage = "\(member.displayName) removed from family"
+                showingAlert = true
+            } else if let errorMessage = familyViewModel.errorMessage {
+                alertMessage = errorMessage
+                showingAlert = true
+            }
         }
     }
 
@@ -239,5 +305,67 @@ struct FamilyManagementView: View {
         )
 
         inviteEmail = ""
+    }
+
+    private func linkRelatedFamily() {
+        guard let family = familyViewModel.currentFamily else { return }
+
+        isProcessing = true
+        familyViewModel.linkRelatedFamily(
+            fromFamilyId: family.id,
+            toFamilyCode: relatedFamilyCode
+        ) { [self] success in
+            isProcessing = false
+            if success {
+                alertMessage = "Family linked successfully!"
+                showingAlert = true
+                relatedFamilyCode = ""
+            } else if let errorMessage = familyViewModel.errorMessage {
+                alertMessage = errorMessage
+                showingAlert = true
+            }
+        }
+    }
+
+    private func silenceMember(_ member: AppUser) {
+        guard let family = familyViewModel.currentFamily,
+              let userId = authViewModel.currentUser?.id else { return }
+
+        isProcessing = true
+        familyViewModel.silenceMember(
+            familyId: family.id,
+            memberId: member.id,
+            requesterId: userId
+        ) { [self] success in
+            isProcessing = false
+            if success {
+                alertMessage = "\(member.displayName) has been silenced"
+                showingAlert = true
+            } else if let errorMessage = familyViewModel.errorMessage {
+                alertMessage = errorMessage
+                showingAlert = true
+            }
+        }
+    }
+
+    private func unsilenceMember(_ member: AppUser) {
+        guard let family = familyViewModel.currentFamily,
+              let userId = authViewModel.currentUser?.id else { return }
+
+        isProcessing = true
+        familyViewModel.unsilenceMember(
+            familyId: family.id,
+            memberId: member.id,
+            requesterId: userId
+        ) { [self] success in
+            isProcessing = false
+            if success {
+                alertMessage = "\(member.displayName) has been unsilenced"
+                showingAlert = true
+            } else if let errorMessage = familyViewModel.errorMessage {
+                alertMessage = errorMessage
+                showingAlert = true
+            }
+        }
     }
 }

@@ -8,6 +8,7 @@ struct Family: Identifiable, Codable {
     var createdBy: String
     var createdDate: Date
     var relatedFamilyIds: [String] // IDs of related families (extended family, in-laws, etc.)
+    var silencedMemberIds: [String] // User IDs who are silenced/muted
 
     init(id: String = UUID().uuidString, name: String, createdBy: String) {
         self.id = id
@@ -17,6 +18,7 @@ struct Family: Identifiable, Codable {
         self.createdBy = createdBy
         self.createdDate = Date()
         self.relatedFamilyIds = []
+        self.silencedMemberIds = []
     }
 
     // Custom decoding for backward compatibility
@@ -29,6 +31,7 @@ struct Family: Identifiable, Codable {
         createdBy = try container.decode(String.self, forKey: .createdBy)
         createdDate = try container.decode(Date.self, forKey: .createdDate)
         relatedFamilyIds = (try? container.decode([String].self, forKey: .relatedFamilyIds)) ?? []
+        silencedMemberIds = (try? container.decode([String].self, forKey: .silencedMemberIds)) ?? []
     }
 
     static func generateFamilyCode() -> String {

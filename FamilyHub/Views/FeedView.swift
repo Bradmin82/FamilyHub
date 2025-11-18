@@ -9,95 +9,132 @@ struct FeedView: View {
     @State private var showFilter = false
     @State private var showPosts = true
     @State private var showBoards = true
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
 
     var body: some View {
-        NavigationView {
-            ScrollView {
-                LazyVStack(spacing: 16) {
-                    // Filter options
-                    HStack {
-                        Button(action: { showPosts.toggle() }) {
-                            HStack {
-                                Image(systemName: showPosts ? "checkmark.circle.fill" : "circle")
-                                Text("Posts")
-                            }
-                            .foregroundColor(showPosts ? .blue : .gray)
-                        }
+        ScrollView {
+            contentView
+                .padding()
+                .frame(maxWidth: .infinity)
+        }
+        .navigationTitle("Feed")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: { showingCreatePost = true }) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title2)
+                }
+            }
+        }
+        .sheet(isPresented: $showingCreatePost) {
+            CreatePostView(postViewModel: postViewModel)
+        }
+        .onAppear {
+            if let userId = authViewModel.currentUser?.id {
+                postViewModel.fetchPosts(
+                    userId: userId,
+                    familyId: authViewModel.currentUser?.familyId,
+                    relatedFamilyIds: authViewModel.currentUser?.relatedFamilyIds ?? []
+                )
+                kanbanViewModel.fetchBoards(
+                    userId: userId,
+                    familyId: authViewModel.currentUser?.familyId,
+                    relatedFamilyIds: authViewModel.currentUser?.relatedFamilyIds ?? []
+                )
+            }
+        }
+    }
 
-                        Button(action: { showBoards.toggle() }) {
-                            HStack {
-                                Image(systemName: showBoards ? "checkmark.circle.fill" : "circle")
-                                Text("Boards")
-                            }
-                            .foregroundColor(showBoards ? .blue : .gray)
-                        }
+    @ViewBuilder
+    private var contentView: some View {
+        VStack(spacing: 16) {
+            filterSection
 
-                        Spacer()
-                    }
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-
-                    // Boards section
+            if horizontalSizeClass == .regular {
+                // iPad layout - 2 column grid
+                VStack(spacing: 16) {
                     if showBoards && !kanbanViewModel.boards.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Recent Boards")
-                                .font(.headline)
-                                .padding(.horizontal)
-
-                            ForEach(kanbanViewModel.boards.prefix(3)) { board in
-                                BoardCardView(board: board, kanbanViewModel: kanbanViewModel)
-                                    .padding(.horizontal)
-                            }
-
-                            if kanbanViewModel.boards.count > 3 {
-                                NavigationLink(destination: KanbanBoardListView()) {
-                                    Text("View All Boards (\(kanbanViewModel.boards.count))")
-                                        .font(.caption)
-                                        .foregroundColor(.blue)
-                                        .frame(maxWidth: .infinity)
-                                        .padding()
-                                }
-                            }
-                        }
-                        .padding(.bottom)
+                        boardsSection
                     }
 
-                    // Posts section
+                    if showPosts {
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+                            ForEach(postViewModel.posts) { post in
+                                PostCardView(post: post, postViewModel: postViewModel)
+                            }
+                        }
+                    }
+                }
+            } else {
+                // iPhone layout - single column
+                LazyVStack(spacing: 16) {
+                    if showBoards && !kanbanViewModel.boards.isEmpty {
+                        boardsSection
+                    }
+
                     if showPosts {
                         ForEach(postViewModel.posts) { post in
                             PostCardView(post: post, postViewModel: postViewModel)
                         }
                     }
                 }
-                .padding()
             }
-            .navigationTitle("Feed")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showingCreatePost = true }) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2)
+        }
+    }
+
+    private var filterSection: some View {
+        HStack {
+            Button(action: { showPosts.toggle() }) {
+                HStack {
+                    Image(systemName: showPosts ? "checkmark.circle.fill" : "circle")
+                    Text("Posts")
+                }
+                .foregroundColor(showPosts ? .blue : .gray)
+            }
+
+            Button(action: { showBoards.toggle() }) {
+                HStack {
+                    Image(systemName: showBoards ? "checkmark.circle.fill" : "circle")
+                    Text("Boards")
+                }
+                .foregroundColor(showBoards ? .blue : .gray)
+            }
+
+            Spacer()
+        }
+        .padding(.top, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var boardsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Recent Boards")
+                .font(.headline)
+
+            if horizontalSizeClass == .regular {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+                    ForEach(kanbanViewModel.boards.prefix(6)) { board in
+                        BoardCardView(board: board, kanbanViewModel: kanbanViewModel)
                     }
                 }
+            } else {
+                ForEach(kanbanViewModel.boards.prefix(3)) { board in
+                    BoardCardView(board: board, kanbanViewModel: kanbanViewModel)
+                }
             }
-            .sheet(isPresented: $showingCreatePost) {
-                CreatePostView(postViewModel: postViewModel)
-            }
-            .onAppear {
-                if let userId = authViewModel.currentUser?.id {
-                    postViewModel.fetchPosts(
-                        userId: userId,
-                        familyId: authViewModel.currentUser?.familyId,
-                        relatedFamilyIds: authViewModel.currentUser?.relatedFamilyIds ?? []
-                    )
-                    kanbanViewModel.fetchBoards(
-                        userId: userId,
-                        familyId: authViewModel.currentUser?.familyId,
-                        relatedFamilyIds: authViewModel.currentUser?.relatedFamilyIds ?? []
-                    )
+
+            if kanbanViewModel.boards.count > (horizontalSizeClass == .regular ? 6 : 3) {
+                NavigationLink(destination: KanbanBoardListView()) {
+                    Text("View All Boards (\(kanbanViewModel.boards.count))")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                        .frame(maxWidth: .infinity)
+                        .padding()
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.bottom)
     }
 }
 

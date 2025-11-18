@@ -6,45 +6,43 @@ struct KanbanBoardListView: View {
     @State private var showingCreateBoard = false
 
     var body: some View {
-        NavigationView {
-            List {
-                ForEach(kanbanViewModel.boards) { board in
-                    NavigationLink(destination: KanbanBoardDetailView(board: board, kanbanViewModel: kanbanViewModel)) {
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(board.name)
-                                .font(.headline)
-                            Text(board.description)
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                                .lineLimit(2)
-                            Text("\(board.members.count) members")
-                                .font(.caption)
-                                .foregroundColor(.blue)
-                        }
-                        .padding(.vertical, 5)
+        List {
+            ForEach(kanbanViewModel.boards) { board in
+                NavigationLink(destination: KanbanBoardDetailView(board: board, kanbanViewModel: kanbanViewModel)) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(board.name)
+                            .font(.headline)
+                        Text(board.description)
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                            .lineLimit(2)
+                        Text("\(board.members.count) members")
+                            .font(.caption)
+                            .foregroundColor(.blue)
                     }
+                    .padding(.vertical, 5)
                 }
             }
-            .navigationTitle("Boards")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showingCreateBoard = true }) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2)
-                    }
+        }
+        .navigationTitle("Boards")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: { showingCreateBoard = true }) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title2)
                 }
             }
-            .sheet(isPresented: $showingCreateBoard) {
-                CreateBoardView(kanbanViewModel: kanbanViewModel)
-            }
-            .onAppear {
-                if let userId = authViewModel.currentUser?.id {
-                    kanbanViewModel.fetchBoards(
-                        userId: userId,
-                        familyId: authViewModel.currentUser?.familyId,
-                        relatedFamilyIds: authViewModel.currentUser?.relatedFamilyIds ?? []
-                    )
-                }
+        }
+        .sheet(isPresented: $showingCreateBoard) {
+            CreateBoardView(kanbanViewModel: kanbanViewModel)
+        }
+        .onAppear {
+            if let userId = authViewModel.currentUser?.id {
+                kanbanViewModel.fetchBoards(
+                    userId: userId,
+                    familyId: authViewModel.currentUser?.familyId,
+                    relatedFamilyIds: authViewModel.currentUser?.relatedFamilyIds ?? []
+                )
             }
         }
     }
@@ -117,7 +115,16 @@ struct CreateBoardView: View {
 
     private func createBoard() {
         guard let userId = authViewModel.currentUser?.id else { return }
-        kanbanViewModel.createBoard(name: boardName, description: boardDescription, userId: userId, privacy: privacy)
+        let familyId = authViewModel.currentUser?.familyId
+        let relatedFamilyIds = authViewModel.currentUser?.relatedFamilyIds ?? []
+        kanbanViewModel.createBoard(
+            name: boardName,
+            description: boardDescription,
+            userId: userId,
+            privacy: privacy,
+            familyId: familyId,
+            relatedFamilyIds: relatedFamilyIds
+        )
         dismiss()
     }
 }

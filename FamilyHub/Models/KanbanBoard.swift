@@ -10,8 +10,10 @@ struct KanbanBoard: Identifiable, Codable {
     var privacy: Privacy // family or private
     var shareToken: String? // For public URL sharing
     var createdDate: Date
+    var familyId: String? // Family ID of the board creator
+    var relatedFamilyIds: [String] // Related family IDs of the board creator
 
-    init(id: String = UUID().uuidString, name: String, description: String, createdBy: String, privacy: Privacy = .private) {
+    init(id: String = UUID().uuidString, name: String, description: String, createdBy: String, privacy: Privacy = .private, familyId: String? = nil, relatedFamilyIds: [String] = []) {
         self.id = id
         self.name = name
         self.description = description
@@ -25,13 +27,15 @@ struct KanbanBoard: Identifiable, Codable {
         self.privacy = privacy
         self.shareToken = nil
         self.createdDate = Date()
+        self.familyId = familyId
+        self.relatedFamilyIds = relatedFamilyIds
     }
 
     static func generateShareToken() -> String {
         return UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(16).lowercased()
     }
 
-    // Custom decoding to handle missing privacy field and shareToken
+    // Custom decoding to handle missing privacy field, shareToken, familyId and relatedFamilyIds
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
@@ -44,6 +48,8 @@ struct KanbanBoard: Identifiable, Codable {
         // Default to family for existing boards without privacy field
         privacy = (try? container.decode(Privacy.self, forKey: .privacy)) ?? .family
         shareToken = try? container.decode(String.self, forKey: .shareToken)
+        familyId = try? container.decode(String.self, forKey: .familyId)
+        relatedFamilyIds = (try? container.decode([String].self, forKey: .relatedFamilyIds)) ?? []
     }
 }
 

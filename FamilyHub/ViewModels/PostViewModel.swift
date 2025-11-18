@@ -62,25 +62,52 @@ class PostViewModel: ObservableObject {
             return false // Can't see other people's private posts
 
         case .family:
-            // Must be in the same immediate family
-            return familyId != nil
+            // Must be in the SAME immediate family as the post creator
+            guard let viewerFamilyId = familyId, let postFamilyId = post.familyId else {
+                return false
+            }
+            return viewerFamilyId == postFamilyId
 
         case .familyAndRelated:
-            // Must be in immediate family OR related families
-            return familyId != nil || !relatedFamilyIds.isEmpty
+            // Must be in the same immediate family OR same related families
+            if let viewerFamilyId = familyId, let postFamilyId = post.familyId, viewerFamilyId == postFamilyId {
+                return true // Same family
+            }
+            // Check if viewer's family is in post's related families OR vice versa
+            if let viewerFamilyId = familyId, post.relatedFamilyIds.contains(viewerFamilyId) {
+                return true
+            }
+            if let postFamilyId = post.familyId, relatedFamilyIds.contains(postFamilyId) {
+                return true
+            }
+            // Check if any of viewer's related families match post's related families
+            return !relatedFamilyIds.isEmpty && !post.relatedFamilyIds.isEmpty &&
+                   !Set(relatedFamilyIds).isDisjoint(with: Set(post.relatedFamilyIds))
 
         case .familyAndAllRelated:
-            // Must be in immediate family OR any related family
-            return familyId != nil || !relatedFamilyIds.isEmpty
+            // Must be in the same immediate family OR any related family
+            if let viewerFamilyId = familyId, let postFamilyId = post.familyId, viewerFamilyId == postFamilyId {
+                return true // Same family
+            }
+            // Check if viewer's family is in post's related families OR vice versa
+            if let viewerFamilyId = familyId, post.relatedFamilyIds.contains(viewerFamilyId) {
+                return true
+            }
+            if let postFamilyId = post.familyId, relatedFamilyIds.contains(postFamilyId) {
+                return true
+            }
+            // Check if any of viewer's related families match post's related families
+            return !relatedFamilyIds.isEmpty && !post.relatedFamilyIds.isEmpty &&
+                   !Set(relatedFamilyIds).isDisjoint(with: Set(post.relatedFamilyIds))
 
         case .public:
             return true // Everyone can see public posts
         }
     }
 
-    func createPost(userId: String, userName: String, content: String, images: [Data], privacy: Privacy = .private) {
+    func createPost(userId: String, userName: String, content: String, images: [Data], privacy: Privacy = .private, familyId: String? = nil, relatedFamilyIds: [String] = []) {
         print("📝 Creating post with \(images.count) images, privacy: \(privacy.rawValue)")
-        var post = Post(userId: userId, userName: userName, content: content, privacy: privacy)
+        var post = Post(userId: userId, userName: userName, content: content, privacy: privacy, familyId: familyId, relatedFamilyIds: relatedFamilyIds)
 
         let group = DispatchGroup()
         var uploadedImageURLs: [String] = []
